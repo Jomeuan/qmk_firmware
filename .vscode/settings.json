@@ -55,5 +55,17 @@
             "fileMatch": ["keymap.json"],
             "url": "./data/schemas/keymap.jsonschema"
         }
-    ]
+    ],
+    "terminal.integrated.profiles.windows": {
+        "QMK MSYS": {
+            "path": "C:\\QMK_MSYS\\usr\\bin\\bash.exe",
+            "args": ["--login", "-i"],
+            "env": {
+                "MSYSTEM": "MINGW64",
+                "CHERE_INVOKING": "1"
+            },
+            "icon": "terminal-bash"
+        }
+    },
+    "terminal.integrated.defaultProfile.windows": "QMK MSYS"
 }

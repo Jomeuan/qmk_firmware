@@ -35,7 +35,9 @@
     "[json]": {
         "editor.formatOnSave": false
     },
-    "clangd.arguments": ["--header-insertion=never"],
+    "clangd.arguments": ["--header-insertion=never", "--compile-commands-dir=${workspaceFolder}"],
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "C_Cpp.errorSquiggles": "disabled",
     "json.schemas": [
         {
             "fileMatch": ["qmk.json"],

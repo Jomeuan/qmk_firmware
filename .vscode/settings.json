@@ -53,5 +53,16 @@
             "fileMatch": ["keymap.json"],
             "url": "./data/schemas/keymap.jsonschema"
         }
+    ],
+    "git.ignoredRepositories": [
+        "lib/chibios",
+        "lib/chibios-contrib",
+        "lib/chibios-contrib/ext/mcux-sdk",
+        "lib/googletest",
+        "lib/lufa",
+        "lib/vusb",
+        "lib/printf",
+        "lib/pico-sdk",
+        "lib/lvgl"
     ]
 }

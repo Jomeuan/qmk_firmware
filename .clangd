@@ -1,13 +1,23 @@
 CompileFlags:
+    # 为什么需要下面这两个交叉编译参数：
+    # QMK 生成 compile_commands.json 时会把交叉编译器的内置宏（__GNUC__、
+    # __ARM_ARCH…）写进数据库，以此补偿本文件把编译器换成 clang 并删掉
+    # -mcpu/-mfpu 造成的目标信息丢失。
+    # 但那个逻辑在 Windows 上失效了 —— lib/python/qmk/compilation_database.py
+    # 用 `binary.endswith("gcc")` 判断驱动，而 shutil.which() 在这里返回的是
+    # `arm-none-eabi-gcc.EXE`，于是 cpu_defines() 返回空，数据库里没有任何内置宏。
+    # 结果 clangd 用宿主机目标（x86_64-pc-windows-msvc，不定义 __GNUC__）解析
+    # ARM/ChibiOS 代码，CMSIS 的 cmsis_compiler.h 直接 `#error Unknown compiler.`。
+    # 显式指定交叉编译目标即可让 clangd 按 arm-none-eabi / Cortex-M3 正确解析。
     Add:
-        [
-            -Wno-unknown-attributes,
-            -Wno-maybe-uninitialized,
-            -Wno-unknown-warning-option,
-            -Wno-pointer-to-int-cast,
-            -Wno-int-to-void-pointer-cast,
-            -DPROGMEM=,
-        ]
+        - '-Wno-unknown-attributes'
+        - '-Wno-maybe-uninitialized'
+        - '-Wno-unknown-warning-option'
+        - '-Wno-pointer-to-int-cast'
+        - '-Wno-int-to-void-pointer-cast'
+        - '-DPROGMEM='
+        - '--target=arm-none-eabi'
+        - '-march=armv7-m'
     Remove:
         [
             -W*,

@@ -14,18 +14,21 @@
 //
 // ── 1. 层 ────────────────────────────────────────────────────────────────────
 //
-//   层号   名字    叫什么      怎么进                      怎么出
-//   ──────────────────────────────────────────────────────────────────────────
-//   0      _BASE   shift 层    默认就在这层；右空格也回这层   —
+//   层号   名字    叫什么      怎么进                                  怎么出
+//   ─────────────────────────────────────────────────────────────────────────
+//   0      _BASE   shift 层    默认就在这层；右空格也回这层            —
 //                  （普通输出）
-//   1      _CTRL   ctrl 层     点按一次左空格               点按右空格
-//   2      _SYM    符号层      点按一次 F（左手食指）        敲一个键后自动退出
+//   1      _CTRL   ctrl 层     点按一次左空格                         点按右空格
+//   2      _SYM    符号层      点按一次 F（左手食指）                 敲一个键后自动退出
+//   3      _GAME   game 层     【在符号层里】按底行 [5,9]（“→GAME”）  按底行 [5,9]（“→CTRL”）
+//                  （标准键位）                                        先回 ctrl 层，再点右空格回 shift
 //
 //   两个分裂空格都是「点按 / 按住」双功能键（见第 2 节）。
 //
 //   层号顺序有讲究：_SYM 必须**高于** _CTRL。
 //   因为「在 ctrl 层里点按 F」也要能进符号层，而 ctrl 层在 J/K/L/; 上放了下左右上
 //   的覆盖键；层查表是从高往低找，_SYM > _CTRL 才能让符号层盖住 ctrl 层的覆盖键。
+//   （切层都是 switch_layer() 的独占领式，所以 _GAME 放最高只是为了不挡事。）
 //
 //   ⚠ 曾经还有一个 _FN「功能层」（按住 F 进入，放 Pin / Del / 背光），**现已取消**，
 //   内容全部并入符号层 —— 原因见第 3 节。
@@ -127,12 +130,17 @@
 //
 // ── 4. KLE 图例怎么读（已用 KLE 内部模型逐键核对过） ─────────────────────────
 //
-//   KLE 把一个键的图例存在 12 个槽位里。**现在只用一个**：
+//   KLE 把一个键的图例存在 12 个槽位里。**这份设计用三个**（合并面板的三行图例）：
 //
-//     槽位 1 = 键帽**上排** = shift 层（_BASE）的输出
-//     槽位 6 = 键帽**左下** = 符号层（_SYM）的输出
+//     槽位 1（下标 0）= 视觉**第 1 行** = shift 层（_BASE）的输出
+//     槽位 7（下标 6）= 视觉**第 2 行** = ctrl 层（_CTRL）的输出
+//     槽位 2（下标 1）= 视觉**第 3 行** = 符号层（_SYM）的输出
 //
-//   依据：KLE 里 shift 层图右下角的注“左下为符号层跟随键输出”。
+//   ⚠ 注意「视觉行」和「下标」**不是同顺序**：面板标题条写的是
+//     “shift层 / 符号层 / …/ ctrl层”，也就是下标 0=shift、1=符号、6=ctrl；
+//   而 KLE 把它们渲染成上→下 = 下标 0、6、1。核对时以下标为准（例：`C` 键上的
+//   “(” 在下标 1、“Ctrl+v” 在下标 6，只有把 1 当符号、6 当 ctrl 才讲得通）。
+//
 //   （曾经用过的槽位 8「右下 = 长按符号键输出」已随 _FN 一起废弃，见第 3 节。）
 //
 //   KLE 的约定是「两层输出相同的键只画一份」。对应到 QMK 有两种写法，本文件都用：
@@ -179,6 +187,30 @@
 //       Shift 这个角色由**右空格**（[5,8]）承担 —— 不是漏画，是设计里就空着。
 //     · 物理 \ 键 = PgUp，物理 / 键 = PgDn；「\」「/」两个字符改到符号层取
 //
+// ── 6. game 层：游戏用的「标准键位」 ────────────────────────────────────────
+//
+//   为什么要单独一层：shift 层的字母是重排过的（右手整体右移一位、空格在 E 键上…），
+//   而绝大多数游戏都假定标准 QWERTY，照 shift 层打游戏会很别扭。所以单开一层。
+//
+//   入口／出口（都在 KLE 底行那排 1.25u 键的**第一个**，下标 [5,9]）：
+//     · 符号层里它是「→GAME」：点一下 F（进符号层）再按它 → 进 game 层
+//     · game 层里它是「→CTRL」：进了 game 后，按它 → ctrl 层，再点按右空格 → 回 shift 层
+//   （即 QMK 层号是**独占领**式的，四个层同时只有一个生效，见 switch_layer()。）
+//
+//   与 shift 层的全部差别（其余 80 格完全相同）：
+//     · 物理 **Esc 位 = Caps Lock**、物理 **Caps 位 = Esc** —— 两者互换，
+//       把游戏里最常用的 Esc 挪到右手更好按的位置。（KLE 的 game 面板上就写着 Caps/Esc）
+//     · 物理 **E 位 = `Q`**、物理 **R 位 = `R`** —— shift 层这两格是「空格」「F」，
+//       游戏层把它们换成左手缺的两个字母（shift 层里 Q 在 N 键、R 在 . 键上）。
+//       所以本层 Q/R 各出现两次，是故意的（为游戏手感）。
+//     · 物理 **F 位 = `F`** —— shift 层那里是「→符号」入口，但游戏需要真的 F 键。
+//     · 两个分裂空格 = **普通空格 / 普通右 Shift**，不再兼职切层。
+//     · 底行 [5,9] = 「→CTRL」（shift 层那里是空格）、[5,11]（Menu 位）无输出。
+//     · 物理 Y / H / [ / 右 Shift 四格仍然无输出（和 shift 层一致）。
+//
+//   ⚠ 本层是**显式写全 87 格**的（不像 _CTRL/_SYM 靠透传），因为它是一套独立的键位表，
+//   不想受 shift 层的重排影响；以后 shift 层改了字母，本层不会跟着变。
+//
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include QMK_KEYBOARD_H
@@ -187,10 +219,13 @@ enum layer_names {
     _BASE = 0, // ② shift 层：普通输出（字母已重排）
     _CTRL,     // ① ctrl 层：带修饰键的操作 + vim 式移动键
     _SYM,      // ④ 符号层：一次性，点按 F 进入
+    _GAME,     // ③ game 层：打游戏用的标准键位，从符号层 [5,9] 进
 };
 
 enum custom_keycodes {
     SYM_PIN = QK_USER, // 符号层 Esc 位（KLE 里的 “Pin”）：发送字符串 "030828"
+    SYM_GAME,          // 符号层 [5,9]（KLE 里的 “→GAME”）：切到 game 层
+    GAME_CTRL,         // game 层 [5,9]（KLE 里的 “→CTRL”）：切回 ctrl 层
 };
 
 // ── 组合键（tap-hold） ───────────────────────────────────────────────────────
@@ -292,7 +327,22 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         _______,    KC_TILD,  KC_GRV,   XXXXXXX, KC_EQL,     KC_COLN,  _______,  XXXXXXX,  KC_UNDS,   KC_DEL,   XXXXXXX,  _______,  KC_PLUS,   _______,   XXXXXXX,  _______,  _______,
         SYM_PIN,    KC_BSLS,  KC_MINS,  KC_LT,   KC_SLSH,    KC_SCLN,  _______,  KC_HOME,  KC_COMM,   KC_DOT,   KC_DQUO,  KC_END,             XXXXXXX,
         _______,    KC_LBRC,  KC_RBRC,  KC_LPRN, KC_RPRN,    KC_GT,    KC_QUES,  KC_LCBR,  KC_RCBR,   KC_PIPE,  KC_QUOT,                      _______,             BL_UP,
-        _______,    _______,  _______,           XXXXXXX,    XXXXXXX,            XXXXXXX,             _______,  _______,  _______,            _______,   _______,  BL_DOWN,  _______
+        _______,    _______,  _______,           XXXXXXX,    XXXXXXX,            XXXXXXX,             SYM_GAME,  _______,  _______,            _______,   _______,  BL_DOWN,  _______
+    ),
+
+    // ③ game 层：游戏用的「标准键位」，**显式写全 87 格**（设计说明见文件开头第 6 节）。
+    //
+    // 入口：符号层（点按 F）里按 [5,9]；出口：本层 [5,9] = →CTRL → ctrl 层 → 点右空格回 shift。
+    // 与 shift 层的差别只有：Esc/Caps 互换、物理 E 位=Q、物理 R 位=R、物理 F 位=F、
+    // 两个分裂空格变回普通空格/右 Shift、[5,9]=→CTRL、[5,11] 无输出。
+    // （第 1 行第 14 格是 KLE 上写着 “Screen” 的屏幕位，跟 shift 层一样用透传 = Mute。）
+    [_GAME] = LAYOUT_all(
+        KC_CAPS,    KC_F1,    KC_F2,    KC_F3,   KC_F4,      KC_F5,    KC_F6,    KC_F7,    KC_F8,     KC_F9,    KC_F10,   KC_F11,   KC_F12,   _______,
+        KC_GRV,     KC_1,     KC_2,     KC_3,    KC_4,       KC_5,     KC_6,     KC_7,     KC_8,      KC_9,     KC_0,     KC_MINS,  KC_EQL,   KC_BSPC,   KC_INS,   KC_HOME,  KC_PGUP,
+        KC_TAB,     KC_E,     KC_W,     KC_Q,    KC_R,       KC_T,     KC_NO,    KC_Y,     KC_U,      KC_BSPC,  KC_O,     KC_NO,    KC_P,     KC_PGUP,   KC_DEL,   KC_END,   KC_PGDN,
+        KC_ESC,     KC_A,     KC_S,     KC_D,    KC_F,       KC_G,     KC_NO,    KC_H,     KC_J,      KC_K,     KC_L,     KC_I,               KC_ENT,
+        KC_LSFT,    KC_Z,     KC_X,     KC_C,    KC_V,       KC_B,     KC_Q,     KC_N,     KC_M,      KC_R,     KC_PGDN,                      KC_NO,               KC_UP,
+        KC_LCTL,    KC_LGUI,  KC_LALT,           KC_SPC,     KC_SPC,             KC_RSFT,             GAME_CTRL, KC_NO,    KC_NO,              KC_RCTL,   KC_LEFT,  KC_DOWN,  KC_RGHT
     )
 };
 
@@ -394,6 +444,21 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 SEND_STRING("030828");
             }
             return false;
+
+        // ── 层开关（都走自定义 switch_layer()，不碰 default_layer_state）────────
+        // 符号层 [5,9] = →GAME：从符号层进 game 层
+        case SYM_GAME:
+            if (record->event.pressed) {
+                switch_layer(_GAME);
+            }
+            return false;
+
+        // game 层 [5,9] = →CTRL：出 game 层到 ctrl 层（再点右空格就回 shift 层）
+        case GAME_CTRL:
+            if (record->event.pressed) {
+                switch_layer(_CTRL);
+            }
+            return false;
     }
     return true;
 }
@@ -437,10 +502,13 @@ void keyboard_post_init_user(void) {
 }
 
 // 右上角旋钮（encoder）。设计里没有规定各层旋钮干什么，沿用厂商 default 的「音量」。
+// ⚠ 这个数组的长度必须和 keymaps[] 的层数一致（keymap_introspection.c 里有静态断言），
+//    所以加一层就**必须**在这里也加一行，否则编译不过。
 #if defined(ENCODER_MAP_ENABLE)
 const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
     [_BASE] = {ENCODER_CCW_CW(KC_VOLD, KC_VOLU)},
     [_CTRL] = {ENCODER_CCW_CW(KC_VOLD, KC_VOLU)},
     [_SYM]  = {ENCODER_CCW_CW(KC_VOLD, KC_VOLU)},
+    [_GAME] = {ENCODER_CCW_CW(KC_VOLD, KC_VOLU)},
 };
 #endif

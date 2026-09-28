@@ -10,16 +10,19 @@
 // 想要「永不超时」把下面这行删掉即可。
 #define ONESHOT_TIMEOUT 5000
 
-// ── 让两个分裂空格的修饰键立即生效 ───────────────────────────────────────────
+// ── 让两个分裂空格 / ctrl 层 Win 的修饰键立即生效 ────────────────────────────
 //
 // 两个分裂空格是 tap-hold（按住 = Ctrl / Shift，点按 = 切层）。默认情况下 MT 要等
 // TAPPING_TERM（200ms）才知道是按住，于是「按住左空格马上按 C」会被判成点按、
 // 出来的是普通的 c 而不是 Ctrl+C。它们的主用途恰恰就是 Ctrl+C / Ctrl+V 和
 // Shift+字母，必须瞬时，所以打开 per-key 版本。
 //
+// ctrl 层的 Win 键（keymap.c 里的 CTRL_WIN）同理：「按住 Win + J」要立刻得到 Win+J。
+//
 // 效果：按住期间只要按下了别的键，立刻当「按住」处理。
 // 代价：想进 ctrl / shift 层就得**先松开**空格（这正是设计里写的「快按」）。
-// 只对这两个键生效，实现在 keymap.c 的 get_hold_on_other_key_press()。
+// 只对这三个键生效（SPC_CTRL / SPC_SHIFT / CTRL_WIN），
+// 实现在 keymap.c 的 get_hold_on_other_key_press()。
 //
 // ⚠ F（一次性符号层）用的是 OSL，**不是 tap-hold**，所以不受 TAPPING_TERM 影响、
 //   也不在这个名单里 —— 按下即生效，没有延迟。

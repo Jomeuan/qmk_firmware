@@ -93,6 +93,10 @@ game层是为打游戏准备的，打游戏就用普通键位，因为大部分�
 点按时作为esc键，按住时作为修饰键（ctrl+alt+）
 
 **Tab**设计
+> 📌 **后续变更（已实现）**：Tab 的「按住 = alt+shift」**已取消**，现在两边面板都只是普通的 `Tab`。
+> 想要 Shift+Tab，直接按住真 Shift 再按 Tab 即可（Shift+Tab 本来就是这个按法）。
+> 下面的旧描述保留作历史记录。
+
 点按时作为Tab键，按住时作为修饰键（alt+shift+）
 Tab键时要保证其他修饰键能正常作用，比如先按住Shift,再点按Tab，再放开Shift，要能正确输出Shift+Tab
 
@@ -121,8 +125,13 @@ Tab键时要保证其他修饰键能正常作用，比如先按住Shift,再点�
   同时只有一个层生效，所以 `_GAME` 放最高只是为了不挡事。）
 - **esc 层**没有做成 QMK 的层：它就是「按住 Caps 位」，按住时给 ctrl+alt 两个修饰键
   （`MT(MOD_LCTL | MOD_LALT, KC_ESC)`），点按仍然是 Esc。
-- Tab 同理：`MT(MOD_LALT | MOD_LSFT, KC_TAB)`，点按 Tab、按住 alt+shift；
-  先按住 Shift 再点按 Tab 得到的就是 Shift+Tab（物理 Shift 一直在按着）。
+- **Tab 是普通 Tab**：`_BASE[31]` 直接写 `KC_TAB`，`_CTRL[31]` 透传（不再是 `MT(MOD_LALT|MOD_LSFT, KC_TAB)`）。
+  Shift+Tab 直接按住真 Shift 再按 Tab 就行，本来就是这个按法。
+  （曾经它也是「点按/按住」双功能，KLE 已把那一格从 `Tab/alt+shift+` 改回 `Tab`。）
+
+> ✅ 这一条有单元测试钉着：`tests/gk87_two_tab_plain/`（`make test:gk87_two_tab_plain`），
+> 3 个用例：按下 Tab **立刻**出 `KC_TAB`（没有 tap-hold 的延迟）、真 Shift + Tab = `Shift+Tab`、
+> 按住 Tab 期间按别的键不会冒出 `Alt+Shift`。
 
 > 📌 **符号层里两个分裂空格是 `XXXXXXX`（无行为）**，和上面「所有层的这两个键都进
 > ctrl/shift 层」的说法有个例外：`_SYM` 是「敲一个键就退出」的一次性层，空格不是符号，
@@ -311,8 +320,9 @@ KLE 里还有一块**独立的 game 层面板**（图例只有一行，就是 ga
 | --- | --- |
 | 字符类 | 数字行 `1`–`0`、`-`、`=`、`Backspace`（`Ctrl+1..0` 切标签页 / vim 计数前缀用）、`Enter` |
 | 重映射 | 空格（物理 **E** 位）、退格（物理 **O** 位）、F = →符号、J/K/L/; = ←↓↑→、C/V = Ctrl+C/V |
+| 直接用 | `Tab`（透传 → 就是普通 Tab；Shift+Tab 就真按住 Shift 再按它） |
 | 层入口 | 左空格 = `Ctrl`（点按 = 一记 `Ctrl` 单击，按住 = `Ctrl` + 临时回 shift 层）、右空格 = 回 shift 层、右 Alt 位 = 空格、物理 Win = 一记 `Win` 单击（按住 = `Win` + 临时回 shift 层） |
-| 导航/修饰 | `Esc`、`Tab`、`F1`–`F12`、音量、`Ins`/`Home`/`End`/`PgUp`/`PgDn`、方向键、Shift/Ctrl/Alt/Win/Menu、物理 `` ` `` = `Caps Lock` |
+| 导航/修饰 | `Esc`、`F1`–`F12`、音量、`Ins`/`Home`/`End`/`PgUp`/`PgDn`、方向键、Shift/Ctrl/Alt/Win/Menu、物理 `` ` `` = `Caps Lock` |
 | **屏蔽** | 其余全部（各字母位、右 Shift 位…）——敲了不出任何东西 |
 
 各层实际状态（`qmk c2json` 核对过，透传/空键/明写 三者之和都是 87）：
@@ -320,7 +330,7 @@ KLE 里还有一块**独立的 game 层面板**（图例只有一行，就是 ga
 | 层 | 透传 `_______` | 空键 `XXXXXXX` | 明写键码 |
 | --- | --- | --- | --- |
 | `_BASE` | 0 | 5（物理 Y / H / [ / 右 Shift / Fn） | 82 |
-| `_CTRL` | 49 | 22 | 16（Tab、物理 E=空格、物理 O=退格、Esc、F、←↓↑→、Ctrl+C/V、左右空格、物理 Win、物理 `` ` ``=Caps、右 Alt 位） |
+| `_CTRL` | 50 | 22 | 15（物理 E=空格、物理 O=退格、Esc、F、←↓↑→、Ctrl+C/V、左右空格、物理 Win、物理 `` ` ``=Caps、右 Alt 位） |
 | `_SYM` | 33 | 23 | 31（26 个符号 + Pin/Del/变亮/变暗/→GAME） |
 | `_GAME` | 1（屏幕位） | 6（物理 Y / [ / H / 右 Shift / [5,9] 右边两格） | 80（显式写全，见 game 层小节） |
 

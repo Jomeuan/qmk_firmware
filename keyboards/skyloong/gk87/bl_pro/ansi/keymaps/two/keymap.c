@@ -170,7 +170,7 @@
 //
 //     数字行 1-0 / `-` / `=` / Backspace   ← Ctrl+1..0 切标签页、vim 计数前缀
 //     空格（物理 E 位）/ 退格（物理 O 位）
-//     Tab / Esc（Caps 位）/ F = →符号 / J-K-L-; = ←↓↑→ / C-V = Ctrl+C-V / Enter
+//     Tab（透传 = 普通 Tab）/ Esc（Caps 位）/ F = →符号 / J-K-L-; = ←↓↑→ / C-V = Ctrl+C-V / Enter
 //     左空格 = 切到本层、右空格 = 回 shift 层、右 Alt 位 = 空格
 //     物理 Win = 一记 Win 单击（按住 = Win + 临时回 shift 层，见第 2 节）
 //     物理 `` ` `` = Caps Lock（KLE 的 ctrl 面板写 “Caps·”）
@@ -272,10 +272,10 @@ enum custom_keycodes {
 // 设计里的「③ esc 层」就是这么实现的 —— 它是修饰键，不是 QMK 的层。
 #define ESC_CAG MT(MOD_LCTL | MOD_LALT, KC_ESC)
 
-// Tab：点按 = Tab，按住 = alt+shift 修饰键。
-// 先按住别的修饰键（例如物理 Shift）再点按 Tab，输出的就是 Shift+Tab ——
-// 真实 Shift 一直按着，QMK 把 Tab 判成点按后发 KC_TAB，系统看到的就是 Shift+Tab。
-#define TAB_AS MT(MOD_LALT | MOD_LSFT, KC_TAB)
+// Tab：就是普通的 Tab（**曾经**是点按 Tab / 按住 alt+shift 的双功能，现已取消 ——
+// KLE 上那一格从 “Tab/alt+shift+” 改回了普普通通的 “Tab”）。
+// 想要 Shift+Tab，直接按住真 Shift 再按 Tab 即可（Shift+Tab 本来就是这个按法）。
+// 所以这里不再需要自定义键码，_BASE 直接写 KC_TAB，_CTRL 那一格跟 shift 层一样 → 透传。
 
 // 左手食指 F：一次性符号层（OSL）。
 // **不再是 tap-hold**：按下即激活，没有任何等待；敲完一个键自动退出。
@@ -295,7 +295,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_BASE] = LAYOUT_all(
         KC_ESC,     KC_F1,    KC_F2,    KC_F3,   KC_F4,      KC_F5,    KC_F6,    KC_F7,    KC_F8,     KC_F9,    KC_F10,   KC_F11,   KC_F12,   KC_MUTE,
         KC_CAPS,    KC_1,     KC_2,     KC_3,    KC_4,       KC_5,     KC_6,     KC_7,     KC_8,      KC_9,     KC_0,     KC_MINS,  KC_EQL,   KC_BSPC,   KC_INS,   KC_HOME,  KC_PGUP,
-        TAB_AS,     KC_E,     KC_W,     KC_SPC,  KC_F,       KC_T,     KC_NO,    KC_Y,     KC_U,      KC_BSPC,  KC_O,     KC_NO,    KC_P,     KC_PGUP,   KC_DEL,   KC_END,   KC_PGDN,
+        KC_TAB,     KC_E,     KC_W,     KC_SPC,  KC_F,       KC_T,     KC_NO,    KC_Y,     KC_U,      KC_BSPC,  KC_O,     KC_NO,    KC_P,     KC_PGUP,   KC_DEL,   KC_END,   KC_PGDN,
         ESC_CAG,    KC_A,     KC_S,     KC_D,    SYM_OSL,    KC_G,     KC_NO,    KC_H,     KC_J,      KC_K,     KC_L,     KC_I,               KC_ENT,
         KC_LSFT,    KC_Z,     KC_X,     KC_C,    KC_V,       KC_B,     KC_Q,     KC_N,     KC_M,      KC_R,     KC_PGDN,                      XXXXXXX,             KC_UP,
         KC_LCTL,    KC_LGUI,  KC_LALT,           SPC_CTRL,   KC_SPC,             KC_RSFT,             KC_SPC,    KC_NO,    KC_APP,             KC_RCTL,   KC_LEFT,  KC_DOWN,  KC_RGHT
@@ -309,7 +309,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     // 放行（ctrl 面板上画了图例的）：
     //   · 数字行 1-0 / `-` / `=` / Backspace —— 给 Ctrl+1..0 切标签页、vim 的计数前缀用
     //   · 空格（物理 E 位，新增）、退格（物理 O 位，新增）
-    //   · Tab / Esc（Caps 位）/ F = →符号 / J-K-L-; = ←↓↑→ / C-V = Ctrl+C-V / Enter
+    //   · Tab（透传，就是普通 Tab）/ Esc（Caps 位）/ F = →符号 / J-K-L-; = ←↓↑→ / C-V = Ctrl+C-V / Enter
     //   · 左空格 = CTRL（见第 2 节：点按 = 一记 Ctrl 单击，按住 = Ctrl + 临时回 shift 层）、
     //     右空格 = →SHIFT（点按回 shift 层）、右 Alt 位 = 空格
     //   · 物理 Win = CTRL_WIN（同一套机制：点按 = 一记 Win 单击，
@@ -319,7 +319,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_CTRL] = LAYOUT_all(
         _______,    _______,  _______,  _______, _______,    _______,  _______,  _______,  _______,   _______,  _______,  _______,  _______,  _______,
         KC_CAPS,    _______,  _______,  _______, _______,    _______,  _______,  _______,  _______,   _______,  _______,  _______,  _______,   _______,   _______,  _______,  _______,
-        TAB_AS,     XXXXXXX,  XXXXXXX,  KC_SPC,  XXXXXXX,    XXXXXXX,  _______,  XXXXXXX,  XXXXXXX,   KC_BSPC,  XXXXXXX,  _______,  XXXXXXX,   _______,   XXXXXXX,  _______,  _______,
+        _______,    XXXXXXX,  XXXXXXX,  KC_SPC,  XXXXXXX,    XXXXXXX,  _______,  XXXXXXX,  XXXXXXX,   KC_BSPC,  XXXXXXX,  _______,  XXXXXXX,   _______,   XXXXXXX,  _______,  _______,
         ESC_CAG,    XXXXXXX,  XXXXXXX,  XXXXXXX, SYM_OSL,    XXXXXXX,  _______,  KC_LEFT,  KC_DOWN,   KC_UP,    KC_RGHT,  XXXXXXX,            _______,
         _______,    XXXXXXX,  XXXXXXX,  LCTL(KC_C), LCTL(KC_V), XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, _______,                      _______,             _______,
         _______,    CTRL_WIN, _______,           SPC_CTRL,   XXXXXXX,            SPC_SHIFT,           KC_SPC,    _______,  _______,            _______,   _______,  _______,  _______

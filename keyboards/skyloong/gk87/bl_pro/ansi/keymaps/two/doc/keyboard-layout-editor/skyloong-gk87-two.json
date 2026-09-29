@@ -92,15 +92,9 @@
   ],
   [
     {
-      "c": "#45a2bf",
-      "f": 2,
       "w": 1.5
     },
-    "Tab/alt+shift+\n\n\n\n\n\nTab/alt+shift+",
-    {
-      "c": "#cccccc",
-      "f": 3
-    },
+    "Tab\n\n\n\n\n\nTab",
     "E\n~",
     "W\n`",
     {

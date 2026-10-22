@@ -1,0 +1,421 @@
+[
+  {
+    "backcolor": "#f4f4f4",
+    "name": "keychron-q11-two",
+    "author": "jomeuan",
+    "notes": "**KEYCHRON Q11 (ANSI+Encoder) · two 层设计**\n\n参考 `skyloong-gk87-two.json` 的层设计与图例格式；键位取自 `keymap.c`。办公向，不设 game 层。\n\n**图例读法（每个键三行）**：\n- 第 1 行（上） = **Shift 层**（INPT_L）\n- 第 2 行（中） = **ctrl 层**（CTRL_L）\n- 第 3 行（下） = **符号层**（SYB1_L）\n\n⚠️ KLE 图例槽位（serial.js labelMap，a=4）下，三行分别对应 左上 / 左中 / 左下；Raw data 里写成 `Shift\\n符号\\n\\n\\n\\n\\nctrl`（第二行字面是符号层）。\n\n**空白** = 该层透明/无输出。\n\n**颜色**：橙=图层入口；绿=分裂空格/层入口；紫=方向键；蓝=Esc()。\n\n**空格**：左空格切 ctrl 层；右空格切 Shift 层。\n\n数据来源：`keyboard.../two/keymap.c`"
+  },
+  [
+    {
+      "w": 17,
+      "h": 0.6,
+      "d": true,
+      "t": "#2da44e",
+      "a": 0
+    },
+    "shift（上） / ctrl（中） / 符号（下）"
+  ],
+  [
+    {
+      "t": "#000000",
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nMute",
+    {
+      "x": 0.25,
+      "c": "#cccccc"
+    },
+    "",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nF1",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nF2",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nF3",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nF4",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nF5",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nF6",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nF7",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nF8",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nF9",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nF10",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nF11",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nF12",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nIns",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nDel",
+    {
+      "x": 0.25,
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nMute"
+  ],
+  [
+    {
+      "y": 0.25,
+      "c": "#cccccc"
+    },
+    "I\n1\n\n\n\n\nC",
+    {
+      "x": 0.25,
+      "c": "#cccccc"
+    },
+    "",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\n1",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\n2",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\n3",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\n4",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\n5",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\n6",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\n7",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\n8",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\n9",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\n0",
+    {
+      "c": "#cccccc"
+    },
+    "",
+    {
+      "c": "#cccccc"
+    },
+    "",
+    {
+      "w": 2,
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\n⌫",
+    {
+      "x": 0.25,
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nPgUp"
+  ],
+  [
+    {
+      "c": "#cccccc"
+    },
+    "",
+    {
+      "x": 0.25,
+      "w": 1.5,
+      "c": "#cccccc"
+    },
+    "Tab\nTab\n\n\n\n\nTab",
+    {
+      "c": "#cccccc"
+    },
+    "E",
+    {
+      "c": "#cccccc"
+    },
+    "W\n\n\n\n\n\nCtrl→",
+    {
+      "c": "#cccccc"
+    },
+    "Space\n\n\n\n\n\nSpace",
+    {
+      "c": "#cccccc"
+    },
+    "F\n=\n\n\n\n\nCtrl+F",
+    {
+      "c": "#cccccc"
+    },
+    "T\n:\n\n\n\n\nCtrl+T",
+    {
+      "c": "#cccccc"
+    },
+    "\n`",
+    {
+      "c": "#cccccc"
+    },
+    "Y",
+    {
+      "c": "#cccccc"
+    },
+    "U\n_\n\n\n\n\nCtrl+Alt+L",
+    {
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\n⌫",
+    {
+      "c": "#cccccc"
+    },
+    "O",
+    {
+      "c": "#cccccc"
+    },
+    "3\n~",
+    {
+      "c": "#cccccc"
+    },
+    "P\n+",
+    {
+      "w": 1.5,
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nPgUp",
+    {
+      "x": 0.25,
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nPgDn"
+  ],
+  [
+    {
+      "c": "#cccccc"
+    },
+    "",
+    {
+      "x": 0.25,
+      "w": 1.75,
+      "c": "#45a2bf"
+    },
+    "\nEsc\n\n\n\n\nEsc()",
+    {
+      "c": "#cccccc"
+    },
+    "A\n\\",
+    {
+      "c": "#cccccc"
+    },
+    "S\n-\n\n\n\n\nWhUp",
+    {
+      "c": "#cccccc"
+    },
+    "D\n<\n\n\n\n\nWhDn",
+    {
+      "c": "#ffd28a"
+    },
+    "→符号\n/\n\n\n\n\n→符号",
+    {
+      "c": "#cccccc"
+    },
+    "G\n;",
+    {
+      "c": "#cccccc"
+    },
+    "\n|",
+    {
+      "c": "#e05adb"
+    },
+    "H\nHome\n\n\n\n\n←",
+    {
+      "c": "#e05adb"
+    },
+    "J\n,\n\n\n\n\n↓",
+    {
+      "c": "#e05adb"
+    },
+    "K\n.\n\n\n\n\n↑",
+    {
+      "c": "#e05adb"
+    },
+    "L\n\"\n\n\n\n\n→",
+    {
+      "c": "#cccccc"
+    },
+    "I\nEnd",
+    {
+      "w": 2.25,
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nEnter",
+    {
+      "x": 0.25,
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nHome"
+  ],
+  [
+    {
+      "c": "#cccccc"
+    },
+    "",
+    {
+      "x": 0.25,
+      "w": 2.25,
+      "c": "#cccccc"
+    },
+    "\nShift\n\n\n\n\nShift",
+    {
+      "c": "#cccccc"
+    },
+    "Z\n[\n\n\n\n\nCtrl+Z",
+    {
+      "c": "#cccccc"
+    },
+    "X\n]\n\n\n\n\nCtrl+X",
+    {
+      "c": "#cccccc"
+    },
+    "C\n(\n\n\n\n\nCtrl+C",
+    {
+      "c": "#cccccc"
+    },
+    "V\n)\n\n\n\n\nCtrl+V",
+    {
+      "c": "#cccccc"
+    },
+    "B\n>\n\n\n\n\nCtrl←",
+    {
+      "c": "#cccccc"
+    },
+    "Q\n?",
+    {
+      "c": "#cccccc"
+    },
+    "N\n{",
+    {
+      "c": "#cccccc"
+    },
+    "M\n}",
+    {
+      "c": "#cccccc"
+    },
+    "R",
+    {
+      "c": "#cccccc"
+    },
+    "2\n'",
+    {
+      "w": 1.75,
+      "c": "#cccccc"
+    },
+    "\n\n\n\n\n\nPgDn",
+    {
+      "x": 0.25,
+      "c": "#e05adb"
+    },
+    "\n\n\n\n\n\n↑"
+  ],
+  [
+    {
+      "c": "#cccccc"
+    },
+    "",
+    {
+      "x": 0.25,
+      "w": 1.25,
+      "c": "#cccccc"
+    },
+    "",
+    {
+      "w": 1.25,
+      "c": "#cccccc"
+    },
+    "",
+    {
+      "w": 1.25,
+      "c": "#8fc45c"
+    },
+    "\n\n\n\n\n\n→Win",
+    {
+      "w": 1.25,
+      "c": "#8fc45c"
+    },
+    "\n\n\n\n\n\n→Alt",
+    {
+      "w": 2.25,
+      "c": "#8fc45c"
+    },
+    "→CTRL\nCtrl\n\n\n\n\n→CTRL",
+    {
+      "w": 2.75,
+      "c": "#8fc45c"
+    },
+    "→SHIFT\nShift\n\n\n\n\n→SHIFT",
+    {
+      "c": "#8fc45c"
+    },
+    "\n\n\n\n\n\n→Alt",
+    {
+      "c": "#cccccc"
+    },
+    "",
+    {
+      "c": "#8fc45c"
+    },
+    "\n\n\n\n\n\n→CTRL",
+    {
+      "x": 0.25,
+      "c": "#e05adb"
+    },
+    "\n\n\n\n\n\n←",
+    {
+      "c": "#e05adb"
+    },
+    "\n\n\n\n\n\n↓",
+    {
+      "c": "#e05adb"
+    },
+    "\n\n\n\n\n\n→"
+  ]
+]

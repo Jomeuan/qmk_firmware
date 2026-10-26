@@ -70,6 +70,8 @@
 
 #include QMK_KEYBOARD_H
 
+#include "textstream.h"
+
 enum layers {
     INPT_L, // ① shift 层（默认层）
     CTRL_L, // ② ctrl 层
@@ -78,6 +80,8 @@ enum layers {
 
 enum custom_keycodes {
     SYM_PIN = QK_USER, // 符号层 Esc 位（KLE 的 “Pin”）：发送字符串 "030828"
+    TS_PASTE,          // [1,0] 粘贴键：让键盘把缓冲里的文本开始“打”出来（打完再按 = 重打一遍）
+    TS_ABORT,          // [2,0] 中断键（粘贴键正下方）：立刻停手，缓冲保留
 };
 
 // ── 组合键定义 ───────────────────────────────────────────────────────────────
@@ -111,8 +115,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //    O 位是退格，] 位是 P，\ 位是 PgUp，与 GK87 的 shift 层一致。
     [INPT_L] = LAYOUT_91_ansi(
         KC_MUTE,    XXXXXXX,  KC_F1,     KC_F2,     KC_F3,     KC_F4,     KC_F5,     KC_F6,       KC_F7,     KC_F8,     KC_F9,     KC_F10,    KC_F11,    KC_F12,    KC_INS,    KC_DEL,    KC_MUTE,
-        XXXXXXX,    KC_CAPS,  KC_1,      KC_2,      KC_3,      KC_4,      KC_5,      KC_6,        KC_7,      KC_8,      KC_9,      KC_0,      KC_MINS,   KC_EQL,    KC_BSPC,              XXXXXXX,
-        XXXXXXX,    KC_TAB,   KC_E,      KC_W,      KC_SPC,    KC_F,      KC_T,      XXXXXXX,     KC_Y,      KC_U,      KC_BSPC,   KC_O,      XXXXXXX,   KC_P,      KC_PGUP,              XXXXXXX,
+        TS_PASTE,   KC_CAPS,  KC_1,      KC_2,      KC_3,      KC_4,      KC_5,      KC_6,        KC_7,      KC_8,      KC_9,      KC_0,      KC_MINS,   KC_EQL,    KC_BSPC,              XXXXXXX,
+        TS_ABORT,   KC_TAB,   KC_E,      KC_W,      KC_SPC,    KC_F,      KC_T,      XXXXXXX,     KC_Y,      KC_U,      KC_BSPC,   KC_O,      XXXXXXX,   KC_P,      KC_PGUP,              XXXXXXX,
         XXXXXXX,    ESC_CAG,  KC_A,      KC_S,      KC_D,      SYM_OSL,   KC_G,      XXXXXXX,     KC_H,      KC_J,      KC_K,      KC_L,      KC_I,                 KC_ENT,               XXXXXXX,
         XXXXXXX,    KC_LSFT,             KC_Z,      KC_X,      KC_C,      KC_V,      KC_B,        KC_Q,      KC_N,      KC_M,      KC_R,      KC_PGDN,              XXXXXXX,   KC_UP,
         XXXXXXX,    XXXXXXX,  XXXXXXX,   KC_LGUI,   KC_LALT,              SPC_CTRL,                         KC_RSFT,              XXXXXXX,   XXXXXXX,   KC_RCTL,   KC_LEFT,   KC_DOWN,   KC_RGHT),
@@ -122,8 +126,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //    否则会把 shift 层的字母漏出来（左空格/Ctrl 组合请用「按住左空格」）。
     [CTRL_L] = LAYOUT_91_ansi(
         KC_MUTE,    XXXXXXX,  KC_F1,     KC_F2,     KC_F3,     KC_F4,     KC_F5,     KC_F6,       KC_F7,     KC_F8,     KC_F9,     KC_F10,    KC_F11,    KC_F12,    KC_INS,    KC_DEL,    KC_MUTE,
-        XXXXXXX,    KC_CAPS,  KC_1,      KC_2,      KC_3,      KC_4,      KC_5,      KC_6,        KC_7,      KC_8,      KC_9,      KC_0,      KC_MINS,   KC_EQL,    KC_BSPC,              KC_PGUP,
-        XXXXXXX,    KC_TAB,   XXXXXXX,   XXXXXXX,   KC_SPC,    XXXXXXX,   XXXXXXX,   XXXXXXX,     XXXXXXX,   XXXXXXX,   KC_BSPC,   XXXXXXX,   XXXXXXX,   XXXXXXX,   KC_PGUP,              KC_PGDN,
+        TS_PASTE,   KC_CAPS,  KC_1,      KC_2,      KC_3,      KC_4,      KC_5,      KC_6,        KC_7,      KC_8,      KC_9,      KC_0,      KC_MINS,   KC_EQL,    KC_BSPC,              KC_PGUP,
+        TS_ABORT,   KC_TAB,   XXXXXXX,   XXXXXXX,   KC_SPC,    XXXXXXX,   XXXXXXX,   XXXXXXX,     XXXXXXX,   XXXXXXX,   KC_BSPC,   XXXXXXX,   XXXXXXX,   XXXXXXX,   KC_PGUP,              KC_PGDN,
         XXXXXXX,    CTRL_ESC, XXXXXXX,   XXXXXXX,   XXXXXXX,   SYM_OSL,   XXXXXXX,   XXXXXXX,     KC_LEFT,   KC_DOWN,   KC_UP,     KC_RGHT,   XXXXXXX,              KC_ENT,               KC_HOME,
         XXXXXXX,    KC_LSFT,             XXXXXXX,   XXXXXXX,   LCTL(KC_C),LCTL(KC_V),XXXXXXX,     XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   KC_PGDN,              XXXXXXX,   KC_UP,
         XXXXXXX,    XXXXXXX,  XXXXXXX,   CTRL_WIN,  KC_LALT,              SPC_CTRL,                         SPC_SHIFT,            XXXXXXX,   XXXXXXX,   KC_RCTL,   KC_LEFT,   KC_DOWN,   KC_RGHT),
@@ -138,8 +142,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //    ⚠ [3,1]（Esc 位）= SYM_PIN（KLE 写 “Pin”）：发送字符串 "030828"。
     [SYB1_L] = LAYOUT_91_ansi(
         QK_BOOT,    _______,  _______,   _______,   _______,   _______,   _______,   _______,     _______,   _______,   _______,   _______,   _______,   _______,   _______,   _______,   _______,
-        XXXXXXX,    XXXXXXX,  XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,     XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,              XXXXXXX,
-        XXXXXXX,    _______,  KC_TILD,   KC_GRV,    XXXXXXX,   KC_EQL,    KC_COLN,   XXXXXXX,     XXXXXXX,   KC_UNDS,   XXXXXXX,   XXXXXXX,   XXXXXXX,   KC_PLUS,   XXXXXXX,              _______,
+        TS_PASTE,   XXXXXXX,  XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,     XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,              XXXXXXX,
+        TS_ABORT,   _______,  KC_TILD,   KC_GRV,    XXXXXXX,   KC_EQL,    KC_COLN,   XXXXXXX,     XXXXXXX,   KC_UNDS,   XXXXXXX,   XXXXXXX,   XXXXXXX,   KC_PLUS,   XXXXXXX,              _______,
         XXXXXXX,    SYM_PIN,  KC_BSLS,   KC_MINS,   KC_LT,     KC_SLSH,   KC_SCLN,   XXXXXXX,     KC_HOME,   KC_COMM,   KC_DOT,    KC_DQUO,   KC_END,               _______,              _______,
         XXXXXXX,    _______,             KC_LBRC,   KC_RBRC,   KC_LPRN,   KC_RPRN,   KC_GT,       KC_QUES,   KC_LCBR,   KC_RCBR,   KC_PIPE,   KC_QUOT,              XXXXXXX,   RM_VALU,
         XXXXXXX,    _______,  _______,   _______,   _______,              XXXXXXX,                          XXXXXXX,             XXXXXXX,   XXXXXXX,   _______,   _______,   RM_VALD,   _______)
@@ -260,8 +264,31 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 SEND_STRING("030828");
             }
             return false;
+
+        // ── TextStream：粘贴 / 中断 ──────────────────────────────────────────
+        // 这两颗键在 [1,0] / [2,0]（上下相邻），三层都是同一个 keycode，与当前层无关。
+        // 只响应按下；两种事件都 return false 吞掉，避免把自己打进目标窗口。
+        case TS_PASTE:
+            if (record->event.pressed) {
+                ts_paste();
+            }
+            return false;
+
+        case TS_ABORT:
+            if (record->event.pressed) {
+                ts_abort();
+            }
+            return false;
     }
     return true;
+}
+
+// ── TextStream：主循环里推进输出状态机 ───────────────────────────────────────
+//
+// 放在 housekeeping 而不是 process_record：输出节奏与按键事件无关，
+// 而且这里每轮主循环都会跑，天然是非阻塞的。
+void housekeeping_task_user(void) {
+    ts_task();
 }
 
 // ── 让分裂空格 / ctrl 层 Win 的修饰键「立即」生效 ─────────────────────────────

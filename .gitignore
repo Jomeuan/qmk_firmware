@@ -121,3 +121,5 @@ compile_commands.json
 via*.json
 /keyboards/**/keymaps/via/*
 /keyboards/**/keymaps/vial/*
+keyboards/keychron/q11/ansi_encoder/keymaps/two/docs/vdi.md
+keyboards/keychron/q11/ansi_encoder/keymaps/two/docs/实测目标机.md

@@ -25,3 +25,27 @@
 //
 // 它会把「连点两下 F」变成锁定/解锁符号层，但本设计里连点两下 F 是要输出 `/`
 // 的（符号层 F 位 = KC_SLSH）。开着就等于把 `/` 吃掉。
+
+// ── TextStream ──────────────────────────────────────────────────────────────
+//
+// 主机用 Raw HID 把文本写进键盘的 8 KB 环形缓冲，再按 [1,0]（TS_PASTE）
+// 让键盘自己“打”出来。详见 docs/textstream-design.md。
+//
+// 缓冲必须是 2 的幂（textstream.c 用位与代替取模）。
+#define TEXTSTREAM_BUF_SIZE 8192
+
+// 按下保持时长（ms）。必须大于 USB 1ms 轮询。
+#define TEXTSTREAM_PRESS_MS 5
+
+// 字符间隔（ms）。5+10 = 约 66 字符/秒。
+// 某些终端/RDP 吞字时把它调大（例如 20），然后重烧。
+#define TEXTSTREAM_GAP_MS 10
+
+// Shift 提前量（ms）。
+// 大写字母 / 需要 Shift 的符号会拆成「Shift 单独按下 -> 字符键 -> 松开」三段。
+// VDI / RDP 链路实测（26 字符全 Shift 压测）：10 ms 稳定，5 ms 开始出错；默认 50（保守）。
+// 更慢的链路可用脚本的 -Shift 覆盖（运行时写入 RAM，掉电复位）。
+#define TEXTSTREAM_SHIFT_MS 50
+
+// 最近多少毫秒内有物理按键 / 用户按着 Ctrl·Alt·Gui 时，自动让路暂停。
+#define TEXTSTREAM_IDLE_GUARD_MS 120

@@ -2,10 +2,13 @@
 # Queue text into the keyboard RAM buffer, then press TS_PASTE on the keyboard.
 #
 # Usage:
-#   .\textstream-slim.ps1 -Text "hello"
+#   .\textstream-slim.ps1 -Text "hello"               # short: -t "hello"
 #   .\textstream-slim.ps1 -File .\long.txt            # replace the buffer with the file
 #   .\textstream-slim.ps1 -File .\long.txt -Append    # append instead of replacing
 #   .\textstream-slim.ps1 -Text "aA1!zZ" -Shift 50    # Shift lead time override (ms)
+#
+# Parameter aliases (a bare -t would otherwise be ambiguous: Text vs TimeoutSec):
+#   -t Text   -f File   -a Append   -c Chunk   -s Shift   -to TimeoutSec
 #
 # Long input is streamed with flow control: the script polls STATUS and never
 # writes more than the keyboard reports as free, so any length is fine.
@@ -15,12 +18,12 @@
 # Omitting it does NOT restore the default (0 = keep current value).
 
 param(
-  [string]$Text,
-  [string]$File,
-  [switch]$Append,
-  [int]$Chunk = 30,
-  [int]$Shift = 0,
-  [int]$TimeoutSec = 600
+  [Alias('t')][string]$Text,
+  [Alias('f')][string]$File,
+  [Alias('a')][switch]$Append,
+  [Alias('c')][int]$Chunk = 30,
+  [Alias('s')][int]$Shift = 0,
+  [Alias('to')][int]$TimeoutSec = 600
 )
 
 if($File -and $PSBoundParameters.ContainsKey('Text')){Write-Host 'give either -Text or -File, not both';exit 2}

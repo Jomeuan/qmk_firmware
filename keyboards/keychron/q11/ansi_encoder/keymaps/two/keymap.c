@@ -66,6 +66,9 @@
 // · 旋钮按下（[0,0] / [6,8]）在 KLE 上标的是 Mute；左上那颗 [0,0] 在符号层
 //   额外提供 QK_BOOT（KLE 写 “BOOT”），作为免拆机的烧录入口。
 // · 底行右 Alt（[11,2]）按 KLE 已删掉，三层都是 XXXXXXX（物理上是颗空键）。
+// · 符号层里带 Shift 的符号（? : + _ ( ) { } | < > " ~）不走 QMK 的 S() 键码：
+//   QMK 会把 Shift 和字符键放进同一帧报告，VDI / RDP 会漏掉修饰键（? 打成 /）。
+//   改成和 TextStream 一样「先单独立起 Shift，再按字符键」，实现见下方 sym_task()。
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include QMK_KEYBOARD_H
@@ -142,8 +145,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //    ⚠ [3,1]（Esc 位）= SYM_PIN（KLE 写 “Pin”）：发送字符串 "030828"。
     [SYB1_L] = LAYOUT_91_ansi(
         QK_BOOT,    _______,  _______,   _______,   _______,   _______,   _______,   _______,     _______,   _______,   _______,   _______,   _______,   _______,   _______,   _______,   _______,
-        TS_PASTE,   XXXXXXX,  XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,     XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,              XXXXXXX,
-        TS_ABORT,   _______,  KC_TILD,   KC_GRV,    XXXXXXX,   KC_EQL,    KC_COLN,   XXXXXXX,     XXXXXXX,   KC_UNDS,   XXXXXXX,   XXXXXXX,   XXXXXXX,   KC_PLUS,   XXXXXXX,              _______,
+        XXXXXXX,    XXXXXXX,  XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,     XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,              XXXXXXX,
+        XXXXXXX,    _______,  KC_TILD,   KC_GRV,    XXXXXXX,   KC_EQL,    KC_COLN,   XXXXXXX,     XXXXXXX,   KC_UNDS,   XXXXXXX,   XXXXXXX,   XXXXXXX,   KC_PLUS,   XXXXXXX,              _______,
         XXXXXXX,    SYM_PIN,  KC_BSLS,   KC_MINS,   KC_LT,     KC_SLSH,   KC_SCLN,   XXXXXXX,     KC_HOME,   KC_COMM,   KC_DOT,    KC_DQUO,   KC_END,               _______,              _______,
         XXXXXXX,    _______,             KC_LBRC,   KC_RBRC,   KC_LPRN,   KC_RPRN,   KC_GT,       KC_QUES,   KC_LCBR,   KC_RCBR,   KC_PIPE,   KC_QUOT,              XXXXXXX,   RM_VALU,
         XXXXXXX,    _______,  _______,   _______,   _______,              XXXXXXX,                          XXXXXXX,             XXXXXXX,   XXXXXXX,   _______,   _______,   RM_VALD,   _______)
@@ -172,8 +175,106 @@ static bool ctrl_win_pending_off = false;
 static bool ctrl_esc_tmp_base    = false;
 static bool ctrl_esc_pending_off = false;
 
+// ── 符号层：Shift 提前量 ─────────────────────────────────────────────────────
+//
+// 符号层里的 `?` `:` `+` 这些键码在 QMK 里是 KC_QUES = S(KC_SLASH) 这种「带修饰键的
+// 16 位键码」。正常解析时 QMK 把 Shift 和字符键放进**同一帧** USB 报告里发出去：
+// 本机上没问题，但 RDP / VDI 会漏采样或合并「只有修饰键变化」的那一帧，
+// 结果按键事件到了、Shift 丢了 —— `?` 打成 `/`、`+` 打成 `=`。
+//
+// 修法与 TextStream 的带 Shift 字符完全一致（见 textstream.c 的相位说明）：
+//   Shift 单独按下 -> 等 TEXTSTREAM_SHIFT_MS -> 按字符键 -> 松开字符键
+//   -> 等 TEXTSTREAM_GAP_MS -> 松开 Shift
+// 复用同一组宏，所以主机脚本的 SET_DELAY / -Shift 也会同时影响符号层。
+//
+// ⚠ 这里必须自己收尾，不能把按键交回 QMK：一次字符要跨好几个主循环周期，
+//   process_record 的事件是瞬时的，没法「按住不放」。
+enum {
+    SYM_IDLE = 0, // 没有在发
+    SYM_SHIFT,    // Shift 已单独立起，等提前量
+    SYM_PRESS,    // 字符键已按下，等 press_ms
+    SYM_RELEASE,  // 字符键已松开，Shift 再停留 gap_ms
+};
+
+static uint8_t  sym_phase = SYM_IDLE;
+static uint8_t  sym_key   = KC_NO;
+static uint32_t sym_time  = 0;
+
+// 上一颗还没发完就要开始下一颗（或要中止）时，把已经按下的东西收干净。
+static void sym_release_all(void) {
+    if (sym_phase == SYM_PRESS) {
+        unregister_code(sym_key);
+    }
+    if (sym_phase != SYM_IDLE) {
+        unregister_code(KC_LSFT);
+    }
+    sym_phase = SYM_IDLE;
+}
+
+// 物理按下时启动一轮发送；物理松开只吞掉，不打断进行中的相位。
+static void sym_send(uint16_t keycode, bool pressed) {
+    if (!pressed) {
+        return;
+    }
+    sym_release_all();
+    sym_key = (uint8_t)QK_MODS_GET_BASIC_KEYCODE(keycode);
+    register_code(KC_LSFT);
+    sym_phase = SYM_SHIFT;
+    sym_time  = timer_read32();
+}
+
+// 主循环推进（housekeeping_task_user 里调用）。
+static void sym_task(void) {
+    switch (sym_phase) {
+        case SYM_SHIFT:
+            if (timer_elapsed32(sym_time) < TEXTSTREAM_SHIFT_MS) return;
+            register_code(sym_key);
+            sym_phase = SYM_PRESS;
+            sym_time  = timer_read32();
+            return;
+
+        case SYM_PRESS:
+            if (timer_elapsed32(sym_time) < TEXTSTREAM_PRESS_MS) return;
+            unregister_code(sym_key);
+            sym_phase = SYM_RELEASE;
+            sym_time  = timer_read32();
+            return;
+
+        case SYM_RELEASE:
+            if (timer_elapsed32(sym_time) < TEXTSTREAM_GAP_MS) return;
+            unregister_code(KC_LSFT);
+            sym_phase = SYM_IDLE;
+            return;
+    }
+}
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
+        // ── 符号层的 Shift 符号：交给 sym_task 分相位发送 ────────────────
+        // 按下和松开都吞掉：按下时启动状态机，松开时不做任何事
+        // （字符键的按下/松开时机由 Shift 提前量决定，不跟随手指）。
+        // 注意：OSL 的退层发生在 process_record 里（我们 return false 之后），
+        // 所以这里不需要手动 reset_oneshot_layer()。
+        //
+        // 这些键码（KC_QUES = S(KC_SLASH) 等）只出现在符号层，
+        // 所以不必再检查当前层；松开时 QMK 会用按下时缓存的来源层解析，
+        // 拿到的仍然是同一个带 Shift 的键码。
+        case KC_TILD: // ~
+        case KC_COLN: // :
+        case KC_UNDS: // _
+        case KC_PLUS: // +
+        case KC_LT:   // <
+        case KC_DQUO: // "
+        case KC_LPRN: // (
+        case KC_RPRN: // )
+        case KC_GT:   // >
+        case KC_QUES: // ?
+        case KC_LCBR: // {
+        case KC_RCBR: // }
+        case KC_PIPE: // |
+            sym_send(keycode, record->event.pressed);
+            return false;
+
         // ── 左空格：三态键 ─────────────────────────────────────────────
         // shift 层点按 = 进 ctrl 层；ctrl 层点按 = 一记 Ctrl 单击；
         // ctrl 层按住 = 保持 Ctrl + 临时让回 shift 层（这样 Ctrl+J 还是字母 J）。
@@ -289,6 +390,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 // 而且这里每轮主循环都会跑，天然是非阻塞的。
 void housekeeping_task_user(void) {
     ts_task();
+    sym_task(); // 符号层带 Shift 的键（? : + …）的发送相位
 }
 
 // ── 让分裂空格 / ctrl 层 Win 的修饰键「立即」生效 ─────────────────────────────

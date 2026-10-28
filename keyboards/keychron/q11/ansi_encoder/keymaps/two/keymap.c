@@ -68,7 +68,10 @@
 // · 底行右 Alt（[11,2]）按 KLE 已删掉，三层都是 XXXXXXX（物理上是颗空键）。
 // · 符号层里带 Shift 的符号（? : + _ ( ) { } | < > " ~）不走 QMK 的 S() 键码：
 //   QMK 会把 Shift 和字符键放进同一帧报告，VDI / RDP 会漏掉修饰键（? 打成 /）。
-//   改成和 TextStream 一样「先单独立起 Shift，再按字符键」，实现见下方 sym_task()。
+//   改成和 TextStream 一样「先单独立起 Shift，再按字符键」，实现见下方 combo_task()。
+// · ctrl 层的 Ctrl+C / Ctrl+V（[4,2] / [4,3] 的 LCTL(KC_C) / LCTL(KC_V)）是同一个毛病：
+//   「Ctrl 与字符键同帧」在 VDI / RDP 上会丢 Ctrl，粘出来变成裸 c / v。
+//   这两颗键也走同一条 combo_task()，只是提前立起的是 Ctrl 而不是 Shift。
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include QMK_KEYBOARD_H
@@ -127,11 +130,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     // ② ctrl 层（KLE 的「下排」图例）。
     //    ⚠ 排他层：KLE 上这一层没画图例的位置一律 XXXXXXX，不透传，
     //    否则会把 shift 层的字母漏出来（左空格/Ctrl 组合请用「按住左空格」）。
+    //    [4,2] / [4,3] 的 Ctrl+C / Ctrl+V 虽然是 LCTL() 键码，但**不交给 QMK 原生解析**，
+    //    而是由 combo_task() 分相位发送（见下方「组合键：修饰键提前量」）。
     [CTRL_L] = LAYOUT_91_ansi(
         KC_MUTE,    XXXXXXX,  KC_F1,     KC_F2,     KC_F3,     KC_F4,     KC_F5,     KC_F6,       KC_F7,     KC_F8,     KC_F9,     KC_F10,    KC_F11,    KC_F12,    KC_INS,    KC_DEL,    KC_MUTE,
         TS_PASTE,   KC_CAPS,  KC_1,      KC_2,      KC_3,      KC_4,      KC_5,      KC_6,        KC_7,      KC_8,      KC_9,      KC_0,      KC_MINS,   KC_EQL,    KC_BSPC,              KC_PGUP,
         TS_ABORT,   KC_TAB,   XXXXXXX,   XXXXXXX,   KC_SPC,    XXXXXXX,   XXXXXXX,   XXXXXXX,     XXXXXXX,   XXXXXXX,   KC_BSPC,   XXXXXXX,   XXXXXXX,   XXXXXXX,   KC_PGUP,              KC_PGDN,
-        XXXXXXX,    CTRL_ESC, XXXXXXX,   XXXXXXX,   XXXXXXX,   SYM_OSL,   XXXXXXX,   XXXXXXX,     KC_LEFT,   KC_DOWN,   KC_UP,     KC_RGHT,   XXXXXXX,              KC_ENT,               KC_HOME,
+        XXXXXXX,    ESC_CAG, XXXXXXX,   XXXXXXX,   XXXXXXX,   SYM_OSL,   XXXXXXX,   XXXXXXX,     KC_LEFT,   KC_DOWN,   KC_UP,     KC_RGHT,   XXXXXXX,              KC_ENT,               KC_HOME,
         XXXXXXX,    KC_LSFT,             XXXXXXX,   XXXXXXX,   LCTL(KC_C),LCTL(KC_V),XXXXXXX,     XXXXXXX,   XXXXXXX,   XXXXXXX,   XXXXXXX,   KC_PGDN,              XXXXXXX,   KC_UP,
         XXXXXXX,    XXXXXXX,  XXXXXXX,   CTRL_WIN,  KC_LALT,              SPC_CTRL,                         SPC_SHIFT,            XXXXXXX,   XXXXXXX,   KC_RCTL,   KC_LEFT,   KC_DOWN,   KC_RGHT),
 
@@ -175,84 +180,87 @@ static bool ctrl_win_pending_off = false;
 static bool ctrl_esc_tmp_base    = false;
 static bool ctrl_esc_pending_off = false;
 
-// ── 符号层：Shift 提前量 ─────────────────────────────────────────────────────
+// ── 组合键：修饰键提前量 ─────────────────────────────────────────────────────
 //
 // 符号层里的 `?` `:` `+` 这些键码在 QMK 里是 KC_QUES = S(KC_SLASH) 这种「带修饰键的
-// 16 位键码」。正常解析时 QMK 把 Shift 和字符键放进**同一帧** USB 报告里发出去：
-// 本机上没问题，但 RDP / VDI 会漏采样或合并「只有修饰键变化」的那一帧，
-// 结果按键事件到了、Shift 丢了 —— `?` 打成 `/`、`+` 打成 `=`。
+// 16 位键码」，ctrl 层的 LCTL(KC_C) / LCTL(KC_V) 也一样。正常解析时 QMK 把修饰键和
+// 字符键放进**同一帧** USB 报告里发出去：本机上没问题，但 RDP / VDI 会漏采样或合并
+// 「只有修饰键变化」的那一帧，结果按键事件到了、修饰键丢了 ——
+// `?` 打成 `/`、`+` 打成 `=`、Ctrl+C 打成裸 `c`。
 //
 // 修法与 TextStream 的带 Shift 字符完全一致（见 textstream.c 的相位说明）：
-//   Shift 单独按下 -> 等 TEXTSTREAM_SHIFT_MS -> 按字符键 -> 松开字符键
-//   -> 等 TEXTSTREAM_GAP_MS -> 松开 Shift
-// 复用同一组宏，所以主机脚本的 SET_DELAY / -Shift 也会同时影响符号层。
+//   修饰键单独按下 -> 等 TEXTSTREAM_SHIFT_MS -> 按字符键 -> 松开字符键
+//   -> 等 TEXTSTREAM_GAP_MS -> 松开修饰键
+// 复用同一组宏，所以主机脚本的 SET_DELAY / -Shift 也会同时影响这两处。
 //
 // ⚠ 这里必须自己收尾，不能把按键交回 QMK：一次字符要跨好几个主循环周期，
 //   process_record 的事件是瞬时的，没法「按住不放」。
 enum {
-    SYM_IDLE = 0, // 没有在发
-    SYM_SHIFT,    // Shift 已单独立起，等提前量
-    SYM_PRESS,    // 字符键已按下，等 press_ms
-    SYM_RELEASE,  // 字符键已松开，Shift 再停留 gap_ms
+    COMBO_IDLE = 0, // 没有在发
+    COMBO_MOD,      // 修饰键已单独立起，等提前量
+    COMBO_PRESS,    // 字符键已按下，等 press_ms
+    COMBO_RELEASE,  // 字符键已松开，修饰键再停留 gap_ms
 };
 
-static uint8_t  sym_phase = SYM_IDLE;
-static uint8_t  sym_key   = KC_NO;
-static uint32_t sym_time  = 0;
+static uint8_t  combo_phase = COMBO_IDLE;
+static uint8_t  combo_key   = KC_NO;
+static uint8_t  combo_mod   = KC_LSFT;
+static uint32_t combo_time  = 0;
 
 // 上一颗还没发完就要开始下一颗（或要中止）时，把已经按下的东西收干净。
-static void sym_release_all(void) {
-    if (sym_phase == SYM_PRESS) {
-        unregister_code(sym_key);
+static void combo_release_all(void) {
+    if (combo_phase == COMBO_PRESS) {
+        unregister_code(combo_key);
     }
-    if (sym_phase != SYM_IDLE) {
-        unregister_code(KC_LSFT);
+    if (combo_phase != COMBO_IDLE) {
+        unregister_code(combo_mod);
     }
-    sym_phase = SYM_IDLE;
+    combo_phase = COMBO_IDLE;
 }
 
 // 物理按下时启动一轮发送；物理松开只吞掉，不打断进行中的相位。
-static void sym_send(uint16_t keycode, bool pressed) {
+static void combo_send(uint8_t keycode, uint8_t mod, bool pressed) {
     if (!pressed) {
         return;
     }
-    sym_release_all();
-    sym_key = (uint8_t)QK_MODS_GET_BASIC_KEYCODE(keycode);
-    register_code(KC_LSFT);
-    sym_phase = SYM_SHIFT;
-    sym_time  = timer_read32();
+    combo_release_all();
+    combo_key = keycode;
+    combo_mod = mod;
+    register_code(combo_mod);
+    combo_phase = COMBO_MOD;
+    combo_time  = timer_read32();
 }
 
 // 主循环推进（housekeeping_task_user 里调用）。
-static void sym_task(void) {
-    switch (sym_phase) {
-        case SYM_SHIFT:
-            if (timer_elapsed32(sym_time) < TEXTSTREAM_SHIFT_MS) return;
-            register_code(sym_key);
-            sym_phase = SYM_PRESS;
-            sym_time  = timer_read32();
+static void combo_task(void) {
+    switch (combo_phase) {
+        case COMBO_MOD:
+            if (timer_elapsed32(combo_time) < TEXTSTREAM_SHIFT_MS) return;
+            register_code(combo_key);
+            combo_phase = COMBO_PRESS;
+            combo_time  = timer_read32();
             return;
 
-        case SYM_PRESS:
-            if (timer_elapsed32(sym_time) < TEXTSTREAM_PRESS_MS) return;
-            unregister_code(sym_key);
-            sym_phase = SYM_RELEASE;
-            sym_time  = timer_read32();
+        case COMBO_PRESS:
+            if (timer_elapsed32(combo_time) < TEXTSTREAM_PRESS_MS) return;
+            unregister_code(combo_key);
+            combo_phase = COMBO_RELEASE;
+            combo_time  = timer_read32();
             return;
 
-        case SYM_RELEASE:
-            if (timer_elapsed32(sym_time) < TEXTSTREAM_GAP_MS) return;
-            unregister_code(KC_LSFT);
-            sym_phase = SYM_IDLE;
+        case COMBO_RELEASE:
+            if (timer_elapsed32(combo_time) < TEXTSTREAM_GAP_MS) return;
+            unregister_code(combo_mod);
+            combo_phase = COMBO_IDLE;
             return;
     }
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
-        // ── 符号层的 Shift 符号：交给 sym_task 分相位发送 ────────────────
+        // ── 符号层的 Shift 符号：交给 combo_task 分相位发送 ──────────────
         // 按下和松开都吞掉：按下时启动状态机，松开时不做任何事
-        // （字符键的按下/松开时机由 Shift 提前量决定，不跟随手指）。
+        // （字符键的按下/松开时机由修饰键提前量决定，不跟随手指）。
         // 注意：OSL 的退层发生在 process_record 里（我们 return false 之后），
         // 所以这里不需要手动 reset_oneshot_layer()。
         //
@@ -272,7 +280,20 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         case KC_LCBR: // {
         case KC_RCBR: // }
         case KC_PIPE: // |
-            sym_send(keycode, record->event.pressed);
+            combo_send((uint8_t)QK_MODS_GET_BASIC_KEYCODE(keycode), KC_LSFT, record->event.pressed);
+            return false;
+
+        // ── ctrl 层的 Ctrl+C / Ctrl+V：同样分相位发送 ────────────────────
+        // 这两颗键只出现在 ctrl 层，按下/松开都吞掉，时序完全由 combo_task() 决定：
+        // Ctrl 先单独按住 TEXTSTREAM_SHIFT_MS，再按字母，松字母后再停 GAP_MS 才松 Ctrl。
+        // 这样 VDI / RDP 不会把「Ctrl + 字母」当成一帧丢掉修饰键。
+        // ⚠ 每按一次发一次组合，按住不放不会有宿主自动重复（Ctrl+C / Ctrl+V 也用不着）。
+        case LCTL(KC_C):
+            combo_send(KC_C, KC_LCTL, record->event.pressed);
+            return false;
+
+        case LCTL(KC_V):
+            combo_send(KC_V, KC_LCTL, record->event.pressed);
             return false;
 
         // ── 左空格：三态键 ─────────────────────────────────────────────
@@ -390,7 +411,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 // 而且这里每轮主循环都会跑，天然是非阻塞的。
 void housekeeping_task_user(void) {
     ts_task();
-    sym_task(); // 符号层带 Shift 的键（? : + …）的发送相位
+    combo_task(); // 符号层带 Shift 的键（? : + …）与 ctrl 层 Ctrl+C / Ctrl+V 的发送相位
 }
 
 // ── 让分裂空格 / ctrl 层 Win 的修饰键「立即」生效 ─────────────────────────────

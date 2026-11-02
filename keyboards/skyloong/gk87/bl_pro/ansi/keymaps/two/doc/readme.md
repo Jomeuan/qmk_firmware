@@ -125,6 +125,10 @@ Tab键时要保证其他修饰键能正常作用，比如先按住Shift,再点�
   同时只有一个层生效，所以 `_GAME` 放最高只是为了不挡事。）
 - **esc 层**没有做成 QMK 的层：它就是「按住 Caps 位」，按住时给 ctrl+alt 两个修饰键
   （`MT(MOD_LCTL | MOD_LALT, KC_ESC)`），点按仍然是 Esc。
+  在 ctrl 层按住它时会**临时把 ctrl 层让回 shift 层**（和左空格、`CTRL_WIN` 同一套机制），
+  否则 ctrl 层的字母位是 `XXXXXXX`，按住 Esc 再按 S 只会注册 Ctrl+Alt、得不到 `Ctrl+Alt+S`。
+  这一键**只在 ctrl 层**启用 `HOLD_ON_OTHER_KEY_PRESS`（按下别的键就立刻算按住）；
+  shift 层的 Esc 保持经典语义，快速点按后接字母不会被误判成修饰键组合。
 - **Tab 是普通 Tab**：`_BASE[31]` 直接写 `KC_TAB`，`_CTRL[31]` 透传（不再是 `MT(MOD_LALT|MOD_LSFT, KC_TAB)`）。
   Shift+Tab 直接按住真 Shift 再按 Tab 就行，本来就是这个按法。
   （曾经它也是「点按/按住」双功能，KLE 已把那一格从 `Tab/alt+shift+` 改回 `Tab`。）

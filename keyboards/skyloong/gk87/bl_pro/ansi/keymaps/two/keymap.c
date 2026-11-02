@@ -89,6 +89,13 @@
 //     否则松开时这颗键会以 shift 层的 KC_LGUI 身份回来，层就还不了（下方有长注释）。
 //   它和左空格都进了 HOLD_ON_OTHER_KEY_PRESS_PER_KEY 名单，所以都是瞬时的。
 //
+//   ⚠ **Esc/Caps 位**（`ESC_CAG`，按住 = Ctrl+Alt）也套用了「按住时把 ctrl 层让回
+//   shift 层」这一招：否则 ctrl 层的字母位是 XXXXXXX，「按住 Esc + 按 S」只会注册
+//   Ctrl+Alt，S 被 KC_NO 吞掉 —— 这就是实测里「缺了 Ctrl+Alt+S」的原因。
+//   它和左空格一样可以**当场** layer_off（shift 层同一格也叫 ESC_CAG，
+//   重新解析后 keycode 不变），并且只在 ctrl 层启用 HOLD_ON_OTHER_KEY_PRESS
+//   （shift 层的 Esc 要保持经典的点按/按住语义，见 get_hold_on_other_key_press）。
+//
 //   ⚠ 切层一律**不用 QMK 内建的 TO(n)**！
 //   厂商键盘级代码 bl_pro.c 的 process_record_kb() 把 TO(0) 和 TO(1) 劫持成了
 //   set_single_persistent_default_layer(0/1) —— 也就是「持久化切换基础层」。
@@ -270,6 +277,10 @@ enum custom_keycodes {
 
 // Caps 位（原 Esc 位）：点按 = Esc，按住 = ctrl+alt 修饰键。
 // 设计里的「③ esc 层」就是这么实现的 —— 它是修饰键，不是 QMK 的层。
+//
+// ⚠ 和左空格 / CTRL_WIN 一样：在 ctrl 层按住它时会把该层**临时让回 shift 层**
+//   （见 process_record_user 的 ESC_CAG 分支）。否则 ctrl 层的字母位是 XXXXXXX，
+//   「按住 Esc + 按 S」只有 Ctrl+Alt、没有 S，得不到 Ctrl+Alt+S。
 #define ESC_CAG MT(MOD_LCTL | MOD_LALT, KC_ESC)
 
 // Tab：就是普通的 Tab（**曾经**是点按 Tab / 按住 alt+shift 的双功能，现已取消 ——
@@ -309,7 +320,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     // 放行（ctrl 面板上画了图例的）：
     //   · 数字行 1-0 / `-` / `=` / Backspace —— 给 Ctrl+1..0 切标签页、vim 的计数前缀用
     //   · 空格（物理 E 位，新增）、退格（物理 O 位，新增）
-    //   · Tab（透传，就是普通 Tab）/ Esc（Caps 位）/ F = →符号 / J-K-L-; = ←↓↑→ / C-V = Ctrl+C-V / Enter
+    //   · Tab（透传，就是普通 Tab）/ Esc（Caps 位，按住时临时让回 shift 层 → Ctrl+Alt+字母）/
+    //     F = →符号 / J-K-L-; = ←↓↑→ / C-V = Ctrl+C-V / Enter
     //   · 左空格 = CTRL（见第 2 节：点按 = 一记 Ctrl 单击，按住 = Ctrl + 临时回 shift 层）、
     //     右空格 = →SHIFT（点按回 shift 层）、右 Alt 位 = 空格
     //   · 物理 Win = CTRL_WIN（同一套机制：点按 = 一记 Win 单击，
@@ -407,6 +419,10 @@ static bool spc_ctrl_tmp_base  = false;
 static bool ctrl_win_lgui_down = false;
 static bool ctrl_win_tmp_base  = false;
 static bool ctrl_win_pending_off = false;
+
+// Esc/Caps 位（ESC_CAG）的「按住时借走 ctrl 层」标记，语义和左空格的 spc_ctrl_tmp_base 一致：
+//   esc_cag_tmp_base：在 ctrl 层按住 Esc 期间，是否已经把层临时让给了 shift 层。
+static bool esc_cag_tmp_base = false;
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
@@ -519,6 +535,32 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             }
             return true; // 走 MT 原生：按住期间就是 Win
 
+        // ── Esc/Caps 位：按住时把 ctrl 层临时让回 shift 层 ─────────────────────
+        // 设计意图是「按住 = Ctrl+Alt 修饰键」，可 ctrl 层的字母位都是 XXXXXXX（排他层）。
+        // 按住 Esc 时层若不变，「按住 Esc + S」就只注册 Ctrl+Alt，S 被 _CTRL 的 KC_NO
+        // 吞掉 → 得不到 Ctrl+Alt+S。所以和左空格一样：按住期间 layer_off(_CTRL)。
+        //
+        // ⚠ 可以直接在这里 layer_off，**不必**像 CTRL_WIN 那样延后到 post_process：
+        //   _BASE[3,0] 和 _CTRL[3,0] 都是 ESC_CAG，action 按 shift 层重新解析后
+        //   keycode 仍是同一个，松开时读回来照样命中下面的「松开 → layer_on(_CTRL)」。
+        //
+        // 点按（tap.count > 0）不拦：走 MT 原生发 KC_ESC。
+        case ESC_CAG:
+            if (record->tap.count == 0) {
+                if (record->event.pressed) {
+                    // 每次按下先清旧标记（和左空格 / CTRL_WIN 一致的自愈写法）
+                    esc_cag_tmp_base = false;
+                    if (layer_state_is(_CTRL)) {
+                        layer_off(_CTRL);
+                        esc_cag_tmp_base = true;
+                    }
+                } else if (esc_cag_tmp_base) {
+                    layer_on(_CTRL); // 松开把 ctrl 层原样还回来
+                    esc_cag_tmp_base = false;
+                }
+            }
+            return true;
+
         // ── 符号层 Esc 位（KLE 里的 “Pin”） ──────────────────────────────────
         // 发送字符串 "030828"。想改成别的字符/长度就改下面这行。
         case SYM_PIN:
@@ -547,12 +589,19 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 //
 // ctrl 层的 Win（CTRL_WIN）同理：「按住 Win + J」要立刻得到 Win+J，不能等 200ms。
 //
-// 只对这三个键生效。F（一次性符号层）用的是 OSL，**根本不是 tap-hold**，不在这里面，
+// Esc/Caps 位（ESC_CAG）**只在 ctrl 层**返回 true：
+//   · ctrl 层里字母位本来就是 XXXXXXX（屏蔽），「按住 Esc 再按字母」不可能有别的含义，
+//     立刻判成按住、当场借走 ctrl 层，才能马上得到 Ctrl+Alt+字母；
+//   · shift 层里 Esc 是经常要点按的键。若在那一层也开「按别的键就算按住」，
+//     快速敲完 Esc 再敲字母就会变成 Ctrl+Alt+字母（误触）→ 保持经典的点按/按住语义。
+//
+// 只对这四个键生效。F（一次性符号层）用的是 OSL，**根本不是 tap-hold**，不在这里面，
 // 所以它没有任何延迟（这也是取消 LT 的原因）。
 // 副作用：想进 ctrl 层必须先松开左空格（这就是设计里写的「快按」）。
 #if defined(HOLD_ON_OTHER_KEY_PRESS_PER_KEY)
 bool get_hold_on_other_key_press(uint16_t keycode, keyrecord_t *record) {
-    return keycode == SPC_CTRL || keycode == SPC_SHIFT || keycode == CTRL_WIN;
+    return keycode == SPC_CTRL || keycode == SPC_SHIFT || keycode == CTRL_WIN ||
+           (keycode == ESC_CAG && layer_state_is(_CTRL));
 }
 #endif
 
